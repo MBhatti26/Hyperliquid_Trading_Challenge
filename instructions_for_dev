@@ -1,0 +1,18 @@
+# File structure (please follow)
+/src
+  /api              # FastAPI/Express routes
+  /core             # Abstract Base Classes (the code above)
+  /infrastructure   # PublicHLDataSource implementation
+  /services         # PnL & Taint logic implementation
+  main.py           # Entry point
+Dockerfile
+docker-compose.yml
+
+# Instructions:
+1. Add an @abstractmethod to `src/core/base.py for each endpoint`
+2. Define an async function at `src/infrastructure/public_hl_datasource.py`
+  * I believe all function logic will be in this file as well
+  * However, it might be worth creating a global calculations file to handle complex equations and logic
+3. Create an api file in the `src/api` folder
+  * This could also be where function logic is handled
+  * This is definitely where you shape the output
