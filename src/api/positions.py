@@ -15,7 +15,7 @@ TARGET_BUILDER = os.getenv("TARGET_BUILDER")
 router = APIRouter()
 
 def get_datasource() -> BaseDataSource:
-    return PublicHLDataSource()
+  return PublicHLDataSource()
 
 @router.get("/v1/positions")
 async def get_positions(
