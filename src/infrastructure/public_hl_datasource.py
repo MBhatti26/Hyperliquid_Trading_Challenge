@@ -30,3 +30,38 @@ class PublicHLDataSource(BaseDataSource):
 
     response = requests.post(self.url, json=payload)
     return response.json()
+  
+  async def get_equity_at_timestamp(self, user: str, timestamp_ms: int):
+    """
+    Calculates historical equity by taking current state and reversing
+    all ledger updates back to the target timestamp
+    """
+    # 1. Get Current Equity (Margin Summary)
+    state_payload = {"type": "clearinghouseState", "user": user}
+    state_resp = requests.post(self.url, json=state_payload).json()
+    
+    # Current equity is the 'marginSummary' account value
+    current_equity = float(state_resp.get('marginSummary', {}).get('accountValue', 0))
+
+    # 2. Get Ledger Updates from timestamp_ms to now
+    # userNonFundingLedgerUpdates includes deposits, withdrawals, and transfers
+    ledger_payload = {
+      "type": "userNonFundingLedgerUpdates",
+      "user": user,
+      "startTime": timestamp_ms
+    }
+    ledger_resp = requests.post(self.url, json=ledger_payload).json()
+
+    # 3. Reverse the changes
+    # If someone deposited AFTER the timestamp, subtract it from current equity
+    # to find out what they had at the start.
+    delta = 0.0
+    for update in ledger_resp:
+      # The 'delta' field in the ledger update represents the change in account value
+      delta += float(update.get('delta', 0))
+
+    # 4. Final Calculation
+    # Equity_Start = Equity_Now - Change_Since_Start
+    equity_at_start = current_equity - delta
+    
+    return max(equity_at_start, 0.0)
