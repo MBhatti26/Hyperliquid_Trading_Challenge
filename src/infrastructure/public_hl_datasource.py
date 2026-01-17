@@ -25,13 +25,13 @@ class PublicHLDataSource(BaseDataSource):
   def get_user_fills(self, user: str, from_ms: int = None, to_ms: int = None):
     # Use userFillsByTime if timestamps are provided
     if from_ms:
-        payload = {
-          "type": "userFillsByTime",
-          "user": user,
-          "startTime": from_ms
-        }
-        if to_ms:
-          payload["endTime"] = to_ms
+      payload = {
+        "type": "userFillsByTime",
+        "user": user,
+        "startTime": from_ms
+      }
+      if to_ms:
+        payload["endTime"] = to_ms
     else:
       payload = {"type": "userFills", "user": user}
 

@@ -1,7 +1,15 @@
+import os
 from fastapi import APIRouter, Depends
 from typing import Optional
+from dotenv import load_dotenv
 from src.infrastructure.public_hl_datasource import PublicHLDataSource
 from src.core.base import BaseDataSource
+from src.services.helper_functions import (
+  determine_taint,
+)
+
+load_dotenv()
+TARGET_BUILDER = os.getenv("TARGET_BUILDER")
 
 router = APIRouter()
 
@@ -15,9 +23,10 @@ async def get_trades(
   coin: Optional[str] = None,
   fromMs: Optional[int] = None,
   toMs: Optional[int] = None,
-  builderOnly: bool = False,
+  builderOnly: bool = True,
   ds: BaseDataSource = Depends(get_datasource)
 ):
+  # calls get_user_fills from ./src/infrastructure/public_hl_datasource.py
   raw_fills = ds.get_user_fills(user, from_ms=fromMs, to_ms=toMs)
   normalized_trades = []
   
@@ -26,12 +35,15 @@ async def get_trades(
       continue
         
     # Builder-only logic
-    # proxy check: if builderFee exists or specific builder addr matches
-    is_builder = float(fill.get("builderFee", 0)) > 0 
-    
-    if builderOnly and not is_builder:
-      continue
+    # checks if this was traded using a builder
+    # assumes builder if fee is greater than 0    
+    if "builderFee" in fill:
+      is_builder = float(fill.get("builderFee", 0)) > 0
+    else:
+      # Assume it's true demo if builderOnly is turned on
+      is_builder = True if builderOnly else False
 
+    # This takes the original output and reframes it to only push out below
     normalized_trades.append({
       "timeMs": fill.get("time"),
       "coin": fill.get("coin"),
@@ -40,6 +52,9 @@ async def get_trades(
       "sz": fill.get("sz"),
       "fee": fill.get("fee"),
       "closedPnl": fill.get("closedPnl"),
-      "builder": "TARGET_BUILDER" if is_builder else None
+      "builder": TARGET_BUILDER if is_builder else None
     })
+
+  # add column "tainted" if net_size !=0 and builder != TARGET_BUILDER
+  determine_taint(normalized_trades, TARGET_BUILDER)
   return normalized_trades
