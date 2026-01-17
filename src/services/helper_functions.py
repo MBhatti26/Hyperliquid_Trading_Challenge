@@ -1,7 +1,8 @@
 def determine_taint(trades, target_builder):
   position = 0
   is_tainted = False
-
+  
+  trades.sort(key=lambda t: t['timeMs'])
   for t in trades:
     trade_amount = float(t['sz'])
 
@@ -17,7 +18,7 @@ def determine_taint(trades, target_builder):
 
     t['tainted'] = is_tainted
 
-    if position <= 0:
+    if abs(position) < 1e-9:
       is_tainted = False
   
   return trades

@@ -56,5 +56,8 @@ async def get_trades(
     })
 
   # add column "tainted" if net_size !=0 and builder != TARGET_BUILDER
-  determine_taint(normalized_trades, TARGET_BUILDER)
+  determine_taint(
+    normalized_trades,
+    TARGET_BUILDER
+  )
   return normalized_trades
