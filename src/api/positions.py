@@ -4,7 +4,10 @@ from typing import Optional
 from dotenv import load_dotenv
 from src.infrastructure.public_hl_datasource import PublicHLDataSource
 from src.core.base import BaseDataSource
-from src.services.helper_functions import process_coin_positions
+from src.services.helper_functions import (
+  process_coin_positions,
+  filter_by_coin,
+)
 
 load_dotenv()
 TARGET_BUILDER = os.getenv("TARGET_BUILDER")
@@ -31,7 +34,7 @@ async def get_positions(
   
   # Step 2: Filter by coin if specified
   if coin:
-    raw_fills = [f for f in raw_fills if f.get("coin") == coin]
+    raw_fills = filter_by_coin(coin, raw_fills)
   
   # Step 3: Sort by time, then by trade ID for consistency
   raw_fills = sorted(raw_fills, key=lambda x: (x.get("time", 0), x.get("tid", 0)))
