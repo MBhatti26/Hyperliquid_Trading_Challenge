@@ -37,3 +37,110 @@ def taint_by_coin(trades_by_coin, target_builder):
       is_tainted = False
   
   return trades_by_coin
+
+
+def process_coin_positions(coin_trades, builderOnly, target_builder):
+  """
+  Process trades for a single coin and build position history
+  """
+  positions = []
+  
+  # Track lifecycle for taint detection
+  lifecycle_id = 0
+  lifecycle_has_builder = False
+  lifecycle_has_non_builder = False
+  
+  # Track cost basis for avgEntryPx calculation
+  total_cost = 0.0
+  current_avg_entry = 0.0
+  
+  for fill in coin_trades:
+    # Extract trade data
+    side = fill.get("side")  # "A" = SELL, "B" = BUY
+    size = float(fill.get("sz", 0))
+    price = float(fill.get("px", 0))
+    time_ms = fill.get("time")
+    start_position = float(fill.get("startPosition", 0))
+    
+    # Calculate position AFTER this trade
+    # CRITICAL: side "B" = BUY (add), side "A" = SELL (subtract)
+    if side == "B":  # BUY
+      end_position = start_position + size
+    else:  # side == "A", SELL
+      end_position = start_position - size
+    
+    # Check if this is a builder trade
+    trade_builder = fill.get("builder") or fill.get("builderAddress")
+    is_builder_trade = False
+    
+    if "builderFee" in fill:
+      has_builder_fee = float(fill.get("builderFee", 0)) > 0
+      is_builder_trade = has_builder_fee and (trade_builder == target_builder if trade_builder else False)
+    else:
+      is_builder_trade = (trade_builder == target_builder) if trade_builder else False
+    
+    # If builderOnly mode and not a builder trade, skip
+    if builderOnly and not is_builder_trade:
+      continue
+    
+    # Track builder/non-builder for taint
+    if is_builder_trade:
+      lifecycle_has_builder = True
+    else:
+      lifecycle_has_non_builder = True
+    
+    # Calculate average entry price
+    if start_position == 0 and end_position != 0:
+      # Opening a new position
+      current_avg_entry = price
+      total_cost = price * abs(end_position)
+      lifecycle_id += 1
+        
+    elif start_position * end_position < 0:
+      # Position flip (long → short or short → long)
+      current_avg_entry = price
+      total_cost = price * abs(end_position)
+      lifecycle_id += 1
+      # Reset taint tracking for new lifecycle
+      lifecycle_has_builder = is_builder_trade
+      lifecycle_has_non_builder = not is_builder_trade
+        
+    elif abs(end_position) > abs(start_position):
+      # Adding to position (increasing size)
+      cost_added = price * size
+      total_cost += cost_added
+      current_avg_entry = total_cost / abs(end_position)
+        
+    else:
+      # Reducing position (partial or full close)
+      # Average entry price stays the same
+      total_cost = current_avg_entry * abs(end_position) if end_position != 0 else 0
+    
+    # Determine if tainted
+    tainted = False
+    if builderOnly:
+      tainted = lifecycle_has_builder and lifecycle_has_non_builder
+    
+    # Create position snapshot
+    snapshot = {
+      "timeMs": time_ms,
+      "coin": fill.get("coin"),
+      "netSize": str(end_position),
+      "avgEntryPx": str(current_avg_entry) if end_position != 0 else "0"
+    }
+    
+    # Add tainted field if builderOnly
+    if builderOnly:
+      snapshot["tainted"] = tainted
+    
+    positions.append(snapshot)
+    
+    # Check if position closed (returned to 0)
+    if end_position == 0:
+      # Reset for next lifecycle
+      lifecycle_has_builder = False
+      lifecycle_has_non_builder = False
+      total_cost = 0
+      current_avg_entry = 0
+  
+  return positions
