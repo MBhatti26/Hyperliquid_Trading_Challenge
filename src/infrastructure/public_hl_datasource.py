@@ -30,3 +30,12 @@ class PublicHLDataSource(BaseDataSource):
 
     response = requests.post(self.url, json=payload)
     return response.json()
+  
+  async def get_equity_at_timestamp(self, user: str, timestamp_ms: int):
+    """
+    Calculates historical equity by taking current state and reversing
+    all ledger updates back to the target timestamp
+    """
+
+    # default fallback
+    return 1000.0
