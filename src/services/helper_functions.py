@@ -17,7 +17,7 @@ def taint_by_coin(trades_by_coin, target_builder):
   position = 0
   is_tainted = False
   
-  trades_by_coin.sort(key=lambda t: t['timeMs'])
+  trades_by_coin.sort(key=lambda t: t['time'])
   for t in trades_by_coin:
     trade_amount = float(t['sz'])
 
@@ -38,6 +38,37 @@ def taint_by_coin(trades_by_coin, target_builder):
   
   return trades_by_coin
 
+def filter_by_coin(coin, fills):
+  fills = [f for f in fills if f['coin'] == coin]
+  return fills
+
+def aggregate_trades(trades, builder_only):
+  realized_pnl = 0.0
+  fees_paid = 0.0
+  trade_count = 0
+
+  for fill in trades:
+    if builder_only and fill.get('tainted'):
+      continue
+
+    realized_pnl += float(fill.get('closedPnl', 0))
+    fees_paid += float(fill.get('fee', 0))
+    trade_count += 1
+  return {
+    "realized_pnl": realized_pnl,
+    "fees_paid": fees_paid,
+    "trade_count": trade_count
+  }
+
+def calculate_return_pct(equity_at_start, realized_pnl, maxStartCapital):
+  base_capital = max(equity_at_start, 1.0)
+
+  if maxStartCapital:
+    effective_capital = min(base_capital, maxStartCapital)
+  else:
+    effective_capital = base_capital
+
+  return (realized_pnl / effective_capital) * 100
 
 def process_coin_positions(coin_trades, builderOnly, target_builder):
   """
@@ -150,3 +181,4 @@ def process_coin_positions(coin_trades, builderOnly, target_builder):
       current_avg_entry = 0
   
   return positions
+
