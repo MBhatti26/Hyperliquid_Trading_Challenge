@@ -4,9 +4,6 @@ from typing import Optional
 from dotenv import load_dotenv
 from src.infrastructure.public_hl_datasource import PublicHLDataSource
 from src.core.base import BaseDataSource
-from src.services.helper_functions import (
-  determine_taint,
-)
 
 load_dotenv()
 TARGET_BUILDER = os.getenv("TARGET_BUILDER")
@@ -41,14 +38,21 @@ async def get_trades(
     # Builder-only logic
     # checks if this was traded using a builder
     # assumes builder if fee is greater than 0    
-    if "builderFee" in fill:
-      is_builder = float(fill.get("builderFee", 0)) > 0
-    else:
-      # Assume it's true demo if builderOnly is turned on
-      is_builder = True if builderOnly else False
+    # Get the builder ID from the trade
+    trade_builder = fill.get("builder") or fill.get("builderAddress")
 
-    if not is_builder:
-      continue
+    # If user wants builder-only
+    if builderOnly:
+      # Skip trades with no builder
+      if not trade_builder:
+        continue  # Skip this trade
+      
+      # Skip trades from different builders
+      if trade_builder != TARGET_BUILDER:
+        continue  # Skip this trade
+    
+    # If we get here, it matches our target builder!
+    is_builder = True
 
     # This takes the original output and reframes it to only push out below
     normalized_trades.append({
@@ -62,9 +66,4 @@ async def get_trades(
       "builder": TARGET_BUILDER if is_builder else None
     })
 
-  # add column "tainted" if net_size !=0 and builder != TARGET_BUILDER
-  determine_taint(
-    normalized_trades,
-    TARGET_BUILDER
-  )
   return normalized_trades
