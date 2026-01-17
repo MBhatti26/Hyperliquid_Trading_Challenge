@@ -6,4 +6,4 @@
 ## To run:
 Run the following code in your root folder:
 
-`docker-compose up --build`
+`docker compose watch`

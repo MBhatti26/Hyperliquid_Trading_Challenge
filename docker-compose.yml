@@ -5,3 +5,12 @@ services:
       - "8000:8000"
     environment:
       - TARGET_BUILDER=0xYOUR_BUILDER_ADDRESS_HERE
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - __pycache__/
+        - action: rebuild
+          path: ./requirements.txt
