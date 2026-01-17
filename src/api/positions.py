@@ -10,7 +10,7 @@ def get_datasource() -> BaseDataSource:
   return PublicHLDataSource()
 
 @router.get("/v1/positions")
-async def get_leaderboard(
+async def get_positions(
   user: str,
   coin: Optional[str] = None,
   fromMs: Optional[int] = None,
