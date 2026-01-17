@@ -24,7 +24,7 @@ def taint_by_coin(trades_by_coin, target_builder):
     # add or subtract from position each trade
     if t['side'] == 'B': # buy
       position += trade_amount
-    elif t['side'] == 'A': # sell
+    else: # sell if 'A' or 'S'
       position -= trade_amount
 
     # check for differing builders

@@ -47,6 +47,9 @@ async def get_trades(
       # Assume it's true demo if builderOnly is turned on
       is_builder = True if builderOnly else False
 
+    if not is_builder:
+      continue
+
     # This takes the original output and reframes it to only push out below
     normalized_trades.append({
       "timeMs": fill.get("time"),
