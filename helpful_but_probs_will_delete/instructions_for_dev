@@ -16,3 +16,4 @@ docker-compose.yml
 3. Create an api file in the `src/api` folder
   * This could also be where function logic is handled
   * This is definitely where you shape the output
+4. If you needed to download any more Python packages, please add to `requirements.txt`
