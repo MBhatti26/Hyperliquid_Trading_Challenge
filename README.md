@@ -10,6 +10,7 @@ Run the following code in your root folder:
 
 ## Limitations:
 * The public API does not currently show which builder made the trade, so we treat all trades as potentially matching the target builder
+* Since the public API does not explicitly label builder addresses, we identify builder trades by checking if a builder fee was present
 
 ## Environment Variables
 Create a `.env` file and copy into it the code below

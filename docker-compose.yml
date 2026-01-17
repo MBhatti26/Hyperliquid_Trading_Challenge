@@ -9,7 +9,7 @@ services:
       watch:
         - action: sync
           path: ./src
-          target: /app/src
+          target: /src
           ignore:
             - __pycache__/
         - action: rebuild
