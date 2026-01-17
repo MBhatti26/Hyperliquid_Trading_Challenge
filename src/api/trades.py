@@ -28,6 +28,10 @@ async def get_trades(
 ):
   # calls get_user_fills from ./src/infrastructure/public_hl_datasource.py
   raw_fills = ds.get_user_fills(user, from_ms=fromMs, to_ms=toMs)
+
+  if not raw_fills or "error" in str(raw_fills):
+    return []
+
   normalized_trades = []
   
   for fill in raw_fills:
