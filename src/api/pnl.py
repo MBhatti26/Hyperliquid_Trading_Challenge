@@ -19,8 +19,7 @@ async def get_pnl(
   ds: BaseDataSource = Depends(get_datasource) # might be different due to no need for wallet address
 ):
   # Step 1: Get base data from datasource
-  # may need to modify to get correct data
-  # raw_fills = ds.get_user_fills(user, from_ms=fromMs, to_ms=toMs)
+  raw_fills = ds.get_user_fills(user, from_ms=fromMs, to_ms=toMs)
 
   # Step 2: Calculations
   # effectiveCapital = min(equityAtFromMs, maxStartCapital)
@@ -30,6 +29,7 @@ async def get_pnl(
   # if !maxStartCapital, use equityAtFromMs
 
   # Step 3: shape the data to return
+  # right now this returns the raw data. It needs to be shaped
   # The following needs to be returned:
   # realizedPnl, returnPct, feesPaid, tradeCount, tainted (only when builderOnly = true)
-  return []
+  return raw_fills
