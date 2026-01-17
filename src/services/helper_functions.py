@@ -60,10 +60,12 @@ def aggregate_trades(trades, builder_only):
     "trade_count": trade_count
   }
 
-def calculate_return_pct(equity_at_start, realized_pnl):
+def calculate_return_pct(equity_at_start, realized_pnl, maxStartCapital):
   base_capital = max(equity_at_start, 1.0)
-  
-  # effectiveCapital = min(equityAtFromMs, maxStartCapital)
-  effective_capital = base_capital
 
-  return realized_pnl / effective_capital * 100
+  if maxStartCapital:
+    effective_capital = min(base_capital, maxStartCapital)
+  else:
+    effective_capital = base_capital
+
+  return (realized_pnl / effective_capital) * 100

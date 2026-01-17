@@ -27,7 +27,8 @@ async def get_pnl(
   fromMs: Optional[int] = None,
   toMs: Optional[int] = None,
   builderOnly: bool = False,
-  ds: BaseDataSource = Depends(get_datasource) # might be different due to no need for wallet address
+  maxStartCapital: Optional[float] = None,
+  ds: BaseDataSource = Depends(get_datasource)
 ):
   # Step 1: Get base data from datasource
   raw_fills = ds.get_user_fills(user, from_ms=fromMs, to_ms=toMs)
@@ -46,7 +47,7 @@ async def get_pnl(
 
   # Step 4: Relative PnL
   equity_at_start = await ds.get_equity_at_timestamp(user, fromMs) if fromMs else 1.0
-  relative_pnl = calculate_return_pct(equity_at_start, realized_pnl) 
+  relative_pnl = calculate_return_pct(equity_at_start, realized_pnl, maxStartCapital) 
 
   # Step 5: shape the data to return
   return {

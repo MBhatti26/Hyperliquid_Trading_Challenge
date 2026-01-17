@@ -34,7 +34,7 @@ async def get_trades(
   for fill in raw_fills:
     if coin and fill.get("coin") != coin:
       continue
-        
+
     # Builder-only logic
     # checks if this was traded using a builder
     # assumes builder if fee is greater than 0    
@@ -46,11 +46,11 @@ async def get_trades(
       # Skip trades with no builder
       if not trade_builder:
         continue  # Skip this trade
-      
+
       # Skip trades from different builders
       if trade_builder != TARGET_BUILDER:
         continue  # Skip this trade
-    
+
     # If we get here, it matches our target builder!
     is_builder = True
 
