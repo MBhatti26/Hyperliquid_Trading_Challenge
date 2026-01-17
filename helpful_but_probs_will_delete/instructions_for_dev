@@ -17,3 +17,12 @@ docker-compose.yml
   * This could also be where function logic is handled
   * This is definitely where you shape the output
 4. If you needed to download any more Python packages, please add to `requirements.txt`
+5. Wallet and builder addresses should be in the `.env` file. Please refer to the README for how to set that up. Below shows what to add to your api files to access the variables in `.env`:
+```
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+<!-- Or other variable name -->
+TARGET_BUILDER = os.getenv("TARGET_BUILDER")
+```

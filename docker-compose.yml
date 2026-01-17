@@ -3,8 +3,8 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - TARGET_BUILDER=0xYOUR_BUILDER_ADDRESS_HERE
+    env_file:
+      - .env
     develop:
       watch:
         - action: sync
