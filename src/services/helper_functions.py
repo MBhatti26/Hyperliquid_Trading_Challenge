@@ -69,6 +69,12 @@ def process_coin_positions(coin_trades, builderOnly, target_builder):
     else:  # side == "A", SELL
       end_position = start_position - size
     
+    if start_position != 0 and current_avg_entry == 0:
+      # We're joining mid-lifecycle
+      # Use current price as best estimate
+      current_avg_entry = price
+      total_cost = price * abs(start_position)
+    
     # Check if this is a builder trade
     trade_builder = fill.get("builder") or fill.get("builderAddress")
     is_builder_trade = False
