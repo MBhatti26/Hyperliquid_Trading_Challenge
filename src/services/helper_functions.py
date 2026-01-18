@@ -1,4 +1,4 @@
-def determine_taint(trades, target_builder):
+def determine_taint(trades, target_builder, sort_by='time'):
   # Group trades by coin name
   coins = {}
   for t in trades:
@@ -9,15 +9,15 @@ def determine_taint(trades, target_builder):
   
   # Run separately for each coin's list
   for coin_name in coins:
-    taint_by_coin(coins[coin_name], target_builder)
+    taint_by_coin(coins[coin_name], target_builder, sort_by)
   
   return trades
 
-def taint_by_coin(trades_by_coin, target_builder):
+def taint_by_coin(trades_by_coin, target_builder, sort_by='time'):
   position = 0
   is_tainted = False
   
-  trades_by_coin.sort(key=lambda t: t['time'])
+  trades_by_coin.sort(key=lambda t: t[sort_by])
   for t in trades_by_coin:
     trade_amount = float(t['sz'])
 
@@ -35,6 +35,11 @@ def taint_by_coin(trades_by_coin, target_builder):
 
     if abs(position) < 1e-9:
       is_tainted = False
+
+    # Check if a flip occurred (passing through zero)
+    # If the sign of the position changes, it's a new lifecycle.
+    if (position * (position - trade_amount if t['side'] == 'B' else position + trade_amount)) < 0:
+      is_tainted = False # Reset for the new side of the flip
   
   return trades_by_coin
 
@@ -182,3 +187,175 @@ def process_coin_positions(coin_trades, builderOnly, target_builder):
   
   return positions
 
+def check_if_user_tainted(trades, builderOnly, target_builder):
+  """
+  Check if user has any tainted position lifecycles
+  
+  A position lifecycle is tainted if it contains both:
+  - Trades from target builder
+  - Trades NOT from target builder
+  
+  Returns True if ANY lifecycle is tainted
+  """
+  if not builderOnly:
+    return False
+  
+  # Group trades by coin
+  trades_by_coin = {}
+  for trade in trades:
+    coin_name = trade.get("coin")
+    if coin_name not in trades_by_coin:
+      trades_by_coin[coin_name] = []
+    trades_by_coin[coin_name].append(trade)
+  
+  # Check each coin's lifecycles for taint
+  for coin_name, coin_trades in trades_by_coin.items():
+    if is_coin_tainted(coin_trades, target_builder):
+      return True
+  
+  return False
+
+def is_coin_tainted(coin_trades, target_builder):
+  """
+  Check if any position lifecycle for this coin is tainted
+  """
+  lifecycle_has_builder = False
+  lifecycle_has_non_builder = False
+  
+  for trade in coin_trades:
+    side = trade.get("side")
+    start_position = float(trade.get("startPosition", 0))
+    size = float(trade.get("sz", 0))
+    
+    # Calculate end position
+    if side == "B":  # BUY
+      end_position = start_position + size
+    else:  # SELL
+      end_position = start_position - size
+    
+    # Check if builder trade
+    trade_builder = trade.get("builder") or trade.get("builderAddress")
+    is_builder_trade = False
+    
+    if "builderFee" in trade:
+      has_builder_fee = float(trade.get("builderFee", 0)) > 0
+      is_builder_trade = has_builder_fee and (trade_builder == target_builder if trade_builder else False)
+    else:
+      is_builder_trade = (trade_builder == target_builder) if trade_builder else False
+    
+    # Track builder/non-builder
+    if is_builder_trade:
+      lifecycle_has_builder = True
+    else:
+      lifecycle_has_non_builder = True
+    
+    # Check for taint
+    if lifecycle_has_builder and lifecycle_has_non_builder:
+      return True  # This lifecycle is tainted
+    
+    # Check if position closed (lifecycle ends)
+    if end_position == 0:
+      # Reset for next lifecycle
+      lifecycle_has_builder = False
+      lifecycle_has_non_builder = False
+  
+  return False
+
+def calculate_pnl(trades):
+  """
+  Calculate total realized PnL (sum of closedPnl)
+  """
+  pnl = 0.0
+  for trade in trades:
+    closed_pnl = float(trade.get("closedPnl", 0))
+    pnl += closed_pnl
+  return pnl
+
+def calculate_volume(trades):
+  """
+  Calculate total notional traded (price * size for all trades)
+  """
+  volume = 0.0
+  for trade in trades:
+    price = float(trade.get("px", 0))
+    size = float(trade.get("sz", 0))
+    volume += price * size
+  return volume
+
+def calculate_user_metrics(
+  user_address,
+  coin,
+  fromMs,
+  toMs,
+  builderOnly,
+  metric,
+  maxStartCapital,
+  target_builder,
+  ds
+):
+  """
+  Calculate trading metrics for a single user
+  
+  Returns:
+  {
+    "user": "0x...",
+    "metricValue": "123.45",
+    "tradeCount": 50,
+    "tainted": false
+  }
+  """
+  # Get all trades for user
+  raw_fills = ds.get_user_fills(user_address, from_ms=fromMs, to_ms=toMs)
+  
+  if not raw_fills:
+    return None
+  
+  # Filter by coin if specified
+  if coin:
+    raw_fills = [f for f in raw_fills if f.get("coin") == coin]
+  
+  if not raw_fills:
+    return None
+  
+  # Sort trades
+  raw_fills = sorted(raw_fills, key=lambda x: (x.get("time", 0), x.get("tid", 0)))
+  
+  # Calculate tainted status (check for mixed builder/non-builder activity)
+  is_tainted = check_if_user_tainted(raw_fills, builderOnly, target_builder)
+  
+  # Filter trades based on builderOnly mode
+  if builderOnly:
+    filtered_fills = []
+    for fill in raw_fills:
+      trade_builder = fill.get("builder") or fill.get("builderAddress")
+      is_builder_trade = False
+        
+      if "builderFee" in fill:
+        has_builder_fee = float(fill.get("builderFee", 0)) > 0
+        is_builder_trade = has_builder_fee and (trade_builder == target_builder if trade_builder else False)
+      else:
+        is_builder_trade = (trade_builder == target_builder) if trade_builder else False
+      
+      if is_builder_trade:
+        filtered_fills.append(fill)
+    
+    raw_fills = filtered_fills
+
+  if not raw_fills:
+    return None
+
+  # Calculate the requested metric
+  if metric == "volume":
+    metric_value = calculate_volume(raw_fills)
+  elif metric == "pnl":
+    metric_value = calculate_pnl(raw_fills)
+  elif metric == "returnPct":
+    pnl = calculate_pnl(raw_fills)
+    metric_value = (pnl / maxStartCapital) * 100 if maxStartCapital else 0
+
+  return {
+    "user": user_address,
+    "metricValue": str(metric_value),
+    "tradeCount": len(raw_fills),
+    "tainted": is_tainted
+  }
